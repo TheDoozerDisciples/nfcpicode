@@ -1,6 +1,8 @@
 import board
 import busio
 from digitalio import DigitalInOut
+import webbrowser
+import pyautogui
 
 
 from adafruit_pn532.i2c import PN532_I2C
@@ -8,11 +10,13 @@ from adafruit_pn532.i2c import PN532_I2C
 # I2C connection:
 i2c = busio.I2C(board.SCL, board.SDA)
 
-UID_GROUP_ASSIGNMENT = {}
-UID_GROUP = {}
 
 UID_LIST = {str(bytearray(b'\x93\x17\xbb\x02')): "White Tag", 
-            str(bytearray(b'\xb1z\xe2\r')): "Blue Tag"}
+            str(bytearray(b'\xb1z\xe2\r')): "Blue Tag",
+            str(None): "Homepage"}
+
+
+URL_LIST = {}
 
 reset_pin = DigitalInOut(board.D6)
 
@@ -26,26 +30,42 @@ print("Found PN532 with firmware version: {0}.{1}".format(ver, rev))
 # Configure PN532 to communicate with MiFare cards
 pn532.SAM_configuration()
 
-def switch_to_page(uid):
-    page = UID_LIST[str(uid)]
-    # TODO SELENIUM OPENING PAGE
+def switch_to_page(cell_part):
+    if cell_part == None:
+        pyautogui.hotkey('ctrl', 'w')
+        pyautogui.press('f11')
+        return
+    else:
+        url = URL_LIST[cell_part]
+        pyautogui.hotkey('ctrl', 'w')
+        webbrowser.open(url)
+        pyautogui.press('f11')
+
 
 
 print("Waiting for RFID/NFC card...")
 
-previous_uid = None
+previous_cell_part = UID_LIST[str(None)]
 increment = 0
-uid_group = UID_GROUP[UID_GROUPS_ASSIGNMENT[None]]
+
+switch_to_page(None)
 while True:
     # Check if a card is available to read
     uid = pn532.read_passive_target(timeout=0.5)
+    
+    if str(uid) in UID_LIST.keys():
+        cell_part = UID_LIST[str(uid)]
+    else:
+        print("UNKNOWN UID: ", uid)
 
-    if previous_uid not in uid_group:
-        if increment >= 5:
-            previous_uid = uid
-            switch_to_page(uid)
+    if cell_part != previous_cell_part:
+        if increment >= 4:
+            previous_cell_part = cell_part
+            switch_to_page(cell_part)
         else:
             increment += 1
+    else:
+        continue
 
 
     # # Try again if no card is available.
